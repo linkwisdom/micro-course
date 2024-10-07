@@ -1,6 +1,10 @@
 import React, { useState } from 'react'
 import { ChevronLeft, ChevronRight, X } from 'lucide-react'
-import { Slide } from '../types'
+import { Slide, ShapeType } from '../types'
+import Circle from './shapes/Circle'
+import Square from './shapes/Square'
+import Triangle from './shapes/Triangle'
+import Line from './shapes/Line'
 
 interface PresentationProps {
   slides: Slide[]
@@ -19,6 +23,21 @@ const Presentation: React.FC<PresentationProps> = ({ slides, onClose }) => {
   const prevSlide = () => {
     if (currentSlide > 0) {
       setCurrentSlide(currentSlide - 1)
+    }
+  }
+
+  const renderShape = (shapeType: ShapeType, size: number) => {
+    switch (shapeType) {
+      case 'circle':
+        return <Circle size={size} color="white" />
+      case 'square':
+        return <Square size={size} color="white" />
+      case 'triangle':
+        return <Triangle size={size} color="white" />
+      case 'line':
+        return <Line size={size} color="white" />
+      default:
+        return null
     }
   }
 
@@ -46,11 +65,16 @@ const Presentation: React.FC<PresentationProps> = ({ slides, onClose }) => {
               top: element.position.y,
               width: element.size.width,
               height: element.size.height,
+              transform: `rotate(${element.rotation || 0}deg)`,
             }}
           >
             {element.type === 'text' && <div className="text-white">{element.content}</div>}
-            {element.type === 'image' && <img src={element.content} alt="" />}
-            {element.type === 'shape' && <div className="bg-gray-300">{element.content}</div>}
+            {element.type === 'image' && <img src={element.content} alt="" className="w-full h-full object-contain" />}
+            {element.type === 'shape' && element.shapeType && (
+              <div className="w-full h-full flex items-center justify-center">
+                {renderShape(element.shapeType, Math.min(parseInt(element.size.width as string), parseInt(element.size.height as string)))}
+              </div>
+            )}
           </div>
         ))}
       </div>

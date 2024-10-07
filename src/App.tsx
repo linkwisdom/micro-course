@@ -1,171 +1,163 @@
 import React, { useState, useRef } from 'react'
-import { Layers, Play, Download, Image, Type, Square } from 'lucide-react'
+import { Layers, Play, Download, Image, Type } from 'lucide-react'
 import html2canvas from 'html2canvas'
 import jsPDF from 'jspdf'
 import Editor from './components/Editor'
 import Presentation from './components/Presentation'
-import { Slide, ElementType } from './types'
+import ShapeSelector from './components/ShapeSelector'
+import SlideSetting from './components/SlideSetting' // 导入新的 SlideSetting 组件
+import { Slide, ElementType, ShapeType } from './types'
 
-function App() {
-  const [slides, setSlides] = useState<Slide[]>([{ id: '1', elements: [] }])
+const App: React.FC = () => {
+  const [slides, setSlides] = useState<Slide[]>([
+    { id: '1', elements: [], title: 'Slide 1', backgroundColor: '#ffffff', backgroundImage: '' },
+  ])
+  const [showSlideSetting, SetShowSlideSetting] = useState(false)
   const [currentSlide, setCurrentSlide] = useState(0)
   const [isPresenting, setIsPresenting] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const slidesRef = useRef<(HTMLDivElement | null)[]>([])
+  const editorRef = useRef<HTMLDivElement>(null)
 
   const addSlide = () => {
-    setSlides([...slides, { id: Date.now().toString(), elements: [] }])
+    setSlides([...slides, { id: Date.now().toString(), elements: [], title: `Slide ${slides.length + 1}`, backgroundColor: '#ffffff', backgroundImage: '' }])
+    setCurrentSlide(slides.length)
   }
 
   const updateSlide = (updatedSlide: Slide) => {
-    const newSlides = [...slides]
-    newSlides[currentSlide] = updatedSlide
-    setSlides(newSlides)
+    const updatedSlides = slides.map((slide) =>
+      slide.id === updatedSlide.id ? updatedSlide : slide
+    )
+    setSlides(updatedSlides)
   }
 
-  const exportPresentation = async () => {
-    const pdf = new jsPDF('l', 'mm', 'a4')
-    const width = pdf.internal.pageSize.getWidth()
-    const height = pdf.internal.pageSize.getHeight()
-
-    for (let i = 0; i < slides.length; i++) {
-      const slide = slidesRef.current[i]
-      if (slide) {
-        const canvas = await html2canvas(slide, { scale: 2 })
-        const imgData = canvas.toDataURL('image/png')
-        if (i > 0) pdf.addPage()
-        pdf.addImage(imgData, 'PNG', 0, 0, width, height)
-      }
-    }
-
-    pdf.save('presentation.pdf')
-  }
-
-  const addElement = (type: ElementType) => {
+  const addElement = (type: ElementType, content: string = '') => {
     const newElement = {
       id: Date.now().toString(),
       type,
-      content: type === 'text' ? '新文本' : '',
+      content,
       position: { x: 50, y: 50 },
-      size: { width: 200, height: type === 'text' ? 50 : 200 },
+      size: { width: 200, height: 100 },
+      rotation: 0,
+      fontSize: 16,
+      color: '#000000',
+      zIndex: 1,
     }
-    updateSlide({ ...slides[currentSlide], elements: [...slides[currentSlide].elements, newElement] })
+    const updatedSlide = {
+      ...slides[currentSlide],
+      elements: [...slides[currentSlide].elements, newElement],
+    }
+    updateSlide(updatedSlide)
+    SetShowSlideSetting(false)
   }
 
-  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (file) {
-      const reader = new FileReader()
-      reader.onload = (e) => {
-        const content = e.target?.result as string
-        if (file.size < 102400) { // 100KB
-          addImageElement(content)
-        } else {
-          addImageElement(content, file.name)
-        }
-      }
-      reader.readAsDataURL(file)
-    }
-  }
-
-  const addImageElement = (content: string, fileName?: string) => {
+  const addShape = (shapeType: ShapeType) => {
     const newElement = {
       id: Date.now().toString(),
-      type: 'image' as ElementType,
-      content,
-      fileName,
+      type: 'shape' as ElementType,
+      content: '',
       position: { x: 50, y: 50 },
-      size: { width: 200, height: 200 },
+      size: { width: 100, height: 100 },
+      rotation: 0,
+      shapeType,
+      color: '#000000',
+      zIndex: 1,
     }
-    updateSlide({ ...slides[currentSlide], elements: [...slides[currentSlide].elements, newElement] })
+    const updatedSlide = {
+      ...slides[currentSlide],
+      elements: [...slides[currentSlide].elements, newElement],
+    }
+    updateSlide(updatedSlide)
+  }
+
+  const exportToPDF = async () => {
+    if (editorRef.current) {
+      const canvas = await html2canvas(editorRef.current)
+      const imgData = canvas.toDataURL('image/png')
+      const pdf = new jsPDF({
+        orientation: 'landscape',
+        unit: 'px',
+        format: [canvas.width, canvas.height],
+      })
+      pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height)
+      pdf.save('presentation.pdf')
+    }
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col">
-      <header className="bg-white shadow-md p-4">
-        <h1 className="text-2xl font-bold">微课制作应用</h1>
+    <div className="flex flex-col h-screen">
+      <header className="bg-gray-800 text-white p-4">
+        <h1 className="text-2xl font-bold">Micro-course Creator</h1>
       </header>
-      <main className="flex-grow flex">
-        {!isPresenting ? (
-          <>
-            <aside className="w-64 bg-white shadow-md p-4">
-              <button
-                className="mb-4 w-full bg-blue-500 text-white py-2 px-4 rounded"
-                onClick={addSlide}
-              >
-                添加幻灯片
-              </button>
-              <div className="space-y-2">
-                {slides.map((slide, index) => (
-                  <div
-                    key={slide.id}
-                    className={`p-2 border rounded cursor-pointer ${
-                      index === currentSlide ? 'bg-blue-100' : ''
-                    }`}
-                    onClick={() => setCurrentSlide(index)}
-                  >
-                    幻灯片 {index + 1}
-                  </div>
-                ))}
-              </div>
-            </aside>
-            <section className="flex-grow p-4">
-              {slides.map((slide, index) => (
-                <div
-                  key={slide.id}
-                  ref={(el) => (slidesRef.current[index] = el)}
-                  className={`w-full h-full ${index === currentSlide ? '' : 'hidden'}`}
-                >
-                  <Editor slide={slide} updateSlide={updateSlide} />
-                </div>
-              ))}
-            </section>
-            <aside className="w-64 bg-white shadow-md p-4">
-              <button
-                className="mb-4 w-full bg-green-500 text-white py-2 px-4 rounded flex items-center justify-center"
-                onClick={() => setIsPresenting(true)}
-              >
-                <Play className="mr-2" size={20} /> 开始演示
-              </button>
-              <button
-                className="w-full bg-purple-500 text-white py-2 px-4 rounded flex items-center justify-center"
-                onClick={exportPresentation}
-              >
-                <Download className="mr-2" size={20} /> 导出PDF
-              </button>
-              <div className="mt-4 space-y-2">
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  ref={fileInputRef}
-                  onChange={handleImageUpload}
-                />
-                <button
-                  className="w-full bg-gray-200 py-2 px-4 rounded flex items-center"
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  <Image className="mr-2" size={20} /> 插入图片
-                </button>
-                <button
-                  className="w-full bg-gray-200 py-2 px-4 rounded flex items-center"
-                  onClick={() => addElement('text')}
-                >
-                  <Type className="mr-2" size={20} /> 添加文本
-                </button>
-                <button className="w-full bg-gray-200 py-2 px-4 rounded flex items-center">
-                  <Square className="mr-2" size={20} /> 插入图形
-                </button>
-              </div>
-            </aside>
-          </>
-        ) : (
-          <Presentation
-            slides={slides}
-            onClose={() => setIsPresenting(false)}
+      <SlideSetting
+        slide={slides[currentSlide]}
+        show={showSlideSetting}
+        updateSlide={updateSlide}
+        onClose={()=>{SetShowSlideSetting(false)}}
+      />
+      <main className="flex-1 flex">
+        <aside className="w-64 bg-gray-100 p-4">
+          <div className="space-y-4">
+            <button
+              className="w-full bg-blue-500 text-white p-2 rounded"
+              onClick={addSlide}
+            >
+              <Layers className="inline-block mr-2" />
+              Add Slide
+            </button>
+            <button
+              className="w-full bg-green-500 text-white p-2 rounded"
+              onClick={() => addElement('text', 'New Text')}
+            >
+              <Type className="inline-block mr-2" />
+              Add Text
+            </button>
+            <button
+              className="w-full bg-yellow-500 text-white p-2 rounded"
+              onClick={() => addElement('image', 'https://picsum.photos/200/300')}
+            >
+              <Image className="inline-block mr-2" />
+              Add Image
+            </button>
+            <ShapeSelector onSelectShape={addShape} />
+            <button
+              className="w-full bg-purple-500 text-white p-2 rounded"
+              onClick={() => setIsPresenting(true)}
+            >
+              <Play className="inline-block mr-2" />
+              Present
+            </button>
+            <button
+              className="w-full bg-red-500 text-white p-2 rounded"
+              onClick={exportToPDF}
+            >
+              <Download className="inline-block mr-2" />
+              Export to PDF
+            </button>
+          </div>
+        </aside>
+        <section className="flex-1 p-4" ref={editorRef} style={{ backgroundColor: slides[currentSlide].backgroundColor, backgroundImage: `url(${slides[currentSlide].backgroundImage})` }}>
+          <Editor
+            slide={slides[currentSlide]}
+            updateSlide={updateSlide}
           />
-        )}
+        </section>
       </main>
+      {isPresenting && (
+        <Presentation
+          slides={slides}
+          onClose={() => setIsPresenting(false)}
+        />
+      )}
+      <footer className="bg-gray-200 p-4 fixed bottom-0 w-full flex overflow-x-auto">
+        {slides.map((slide, index) => (
+          <div
+            key={slide.id}
+            className={`p-2 m-1 border ${index === currentSlide ? 'border-blue-500' : 'border-gray-300'}`}
+            onClick={() => { setCurrentSlide(index); SetShowSlideSetting(true);}}
+          >
+            {slide.title}
+          </div>
+        ))}
+      </footer>
     </div>
   )
 }

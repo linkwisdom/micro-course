@@ -1,3 +1,10 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+.z-9999 {
+    z-index: 999;
+}
+.z-99 {
+    z-index: 99;
+}
